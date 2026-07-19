@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Фінансовий Монітор</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #eef2f5; display: flex; justify-content: center; padding: 30px 10px; margin: 0; color: #333; }
+        .container { background-color: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); width: 100%; max-width: 600px; }
+        
+        .goal-box { background: linear-gradient(135deg, #e3f2fd, #bbdefb); padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .debt-box { background: linear-gradient(135deg, #ffebee, #ffcdd2); padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        
+        .box-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .goal-box h3 { margin: 0; font-size: 16px; color: #1565c0; }
+        .debt-box h3 { margin: 0; font-size: 16px; color: #c62828; }
+        
+        .input-group { display: flex; gap: 10px; }
+        .input-group input { padding: 5px 10px; border: 1px solid #ccc; border-radius: 4px; width: 100px; }
+        .btn-goal { padding: 5px 10px; background-color: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-debt { padding: 5px 10px; background-color: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        
+        .progress-bar { width: 100%; height: 12px; background-color: #e0e0e0; border-radius: 6px; overflow: hidden; margin-top: 5px; }
+        .progress-fill-goal { height: 100%; background-color: #4caf50; width: 0%; transition: width 0.5s; }
+        .progress-fill-debt { height: 100%; background-color: #f44336; width: 0%; transition: width 0.5s; }
+        
+        .status-text { font-size: 12px; color: #555; text-align: right; margin-top: 5px; font-weight: bold; }
+
+        .month-filter { display: flex; align-items: center; justify-content: space-between; background-color: #f8f9fa; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; }
+
+        .dashboard { display: flex; gap: 15px; margin-bottom: 25px; }
+        .card { flex: 1; padding: 15px; border-radius: 8px; text-align: center; }
+        .card h3 { margin: 0 0 10px 0; font-size: 14px; color: #666; }
+        .card p { margin: 0; font-size: 20px; font-weight: bold; }
+        .card-balance { background-color: #e3f2fd; p { color: #1565c0; } }
+        .card-invest { background-color: #f3e5f5; p { color: #7b1fa2; } }
+        .card-expense { background-color: #ffebee; p { color: #c62828; } }
+
+        .form-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        input, select, button { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        
+        .file-input-wrapper { flex: 1; }
+        input[type="file"] { padding: 9px; font-size: 12px; background: #fafafa; }
+        
+        .btn-add { background-color: #2e7d32; color: white; cursor: pointer; border: none; font-weight: bold; }
+        .btn-add:hover { background-color: #1b5e20; }
+        .btn-edit-mode { background-color: #f57c00; }
+
+        .section-title { margin-top: 30px; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        .chart-container { width: 100%; max-width: 300px; margin: 20px auto; }
+
+        .list { list-style-type: none; padding: 0; }
+        .list li { padding: 12px; border-bottom: 1px solid #f0f0f0; display: flex; flex-direction: column; }
+        .li-main { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        
+        .receipt-img { max-width: 100px; border-radius: 4px; margin-top: 10px; border: 1px solid #ccc; }
+
+        .date-tag { font-size: 11px; color: #999; display: block; margin-top: 3px; }
+        .category-tag { background-color: #eee; font-size: 12px; padding: 3px 8px; border-radius: 12px; margin-left: 10px; color: #555; }
+        .plus { color: #2e7d32; font-weight: bold; }
+        .minus { color: #c62828; font-weight: bold; }
+        .invest { color: #7b1fa2; font-weight: bold; }
+        
+        .action-btn { color: white; border: none; padding: 5px 8px; margin-left: 5px; border-radius: 4px; cursor: pointer; width: auto; }
+        .delete-btn { background-color: #ff4d4d; }
+        .edit-btn { background-color: #ffb300; }
+        .item-right { display: flex; align-items: center; }
+        .analysis-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #ddd; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- БЛОК МЕТИ -->
+        <div class="goal-box">
+            <div class="box-header">
+                <h3>Моя фінансова мета</h3>
+                <div class="input-group">
+                    <input type="number" id="goal-input" placeholder="Сума">
+                    <button class="btn-goal" onclick="saveGoal()">Встановити</button>
+                </div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill-goal" id="goal-progress"></div></div>
+            <div class="status-text" id="goal-text">0 / 0 ₴ (0%)</div>
+        </div>
+
+        <!-- БЛОК КРЕДИТІВ -->
+        <div class="debt-box">
+            <div class="box-header">
+                <h3>Кредити / Розстрочка</h3>
+                <div class="input-group">
+                    <input type="number" id="debt-input" placeholder="Загальний борг">
+                    <button class="btn-debt" onclick="saveDebt()">Встановити</button>
+                </div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill-debt" id="debt-progress"></div></div>
+            <div class="status-text" id="debt-text">Виплачено: 0 ₴ | Залишилось: 0 ₴</div>
+        </div>
+
+        <div class="month-filter">
+            <strong>Аналіз за період:</strong>
+            <input type="month" id="month-selector">
+        </div>
+
+        <div class="dashboard">
+            <div class="card card-balance">
+                <h3>Залишок (місяць)</h3>
+                <p id="total-balance">0 ₴</p>
+            </div>
+            <div class="card card-invest">
+                <h3>Інвестовано</h3>
+                <p id="total-invested">0 ₴</p>
+            </div>
+            <div class="card card-expense">
+                <h3>Витрати</h3>
+                <p id="total-expenses">0 ₴</p>
+            </div>
+        </div>
+
+        <form id="transaction-form">
+            <div class="form-group">
+                <select id="type">
+                    <option value="plus">Дохід</option>
+                    <option value="minus" selected>Витрата</option>
+                    <option value="invest">Інвестиція</option>
+                </select>
+                <select id="category" required></select>
+            </div>
+            <div class="form-group">
+                <input type="text" id="description" placeholder="Коментар (напр. Сільпо, Розстрочка)" required>
+                <input type="number" id="amount" placeholder="Сума" required min="1" step="0.01">
+            </div>
+            <div class="form-group">
+                <input type="date" id="date" required>
+                <div class="file-input-wrapper">
+                    <input type="file" id="receipt-photo" accept="image/*">
+                </div>
+            </div>
+            <button type="submit" id="submit-btn" class="btn-add">Зберегти запис</button>
+        </form>
+
+        <h3 class="section-title">Аналіз витрат (Графік)</h3>
+        <div class="chart-container"><canvas id="expenseChart"></canvas></div>
+        <div id="analysis-box"></div>
+
+        <h3 class="section-title">Операції за цей місяць</h3>
+        <ul id="history-list" class="list"></ul>
+    </div>
+
+    <script>
+        const categoryOptions = {
+            plus: ['Зарплата', 'Фріланс', 'Відсотки/Дивіденди', 'Подарунок', 'Інше'],
+            minus: ['Продукти', 'Комуналка/Оренда', 'Транспорт', 'Кафе/Розваги', 'Здоров\'я', 'Одяг', 'Догляд', 'Підписки', 'Кредити', 'Інше'],
+            invest: ['Акції/ETF', 'Криптовалюта', 'Депозит', 'ОВДП', 'Нерухомість']
+        };
+
+        const aiRules = {
+            'аврора': 'Інше', 'temoo': 'Інше', 'червоний маркет': 'Інше', 'копійка': 'Інше',
+            'eva': 'Догляд', 'maycap': 'Догляд', 'аптека': 'Здоров\'я', 'медицина': 'Здоров\'я',
+            'andi': 'Одяг', 'lcwaikiki': 'Одяг', 'sinsey': 'Одяг', 'ринок': 'Одяг',
+            'сільпо': 'Продукти', 'атб': 'Продукти', 'ашан': 'Продукти', 'varus': 'Продукти', 'магазин': 'Продукти',
+            'uclon': 'Транспорт', 'bolt': 'Транспорт', 'маршрутка':'Транспорт', 'потяг': 'Транспорт', 'blablacar': 'Транспорт',
+            'youtube': 'Підписки', 'google': 'Підписки', 'apple': 'Підписки', 'телефон': 'Підписки',
+            'ресторан': 'Кафе/Розваги', 'кава': 'Кафе/Розваги', 'морозиво': 'Кафе/Розваги',
+            'зарплата': 'Зарплата', 'аванс': 'Зарплата', 'премія': 'Зарплата',
+            'оренда': 'Комуналка/Оренда', 'комуналка': 'Комуналка/Оренда', 'інтернет': 'Комуналка/Оренда',
+            'розстрочка': 'Кредити', 'кредитка': 'Кредити'
+        };
+
+        const typeSelect = document.getElementById('type');
+        const categorySelect = document.getElementById('category');
+        const descriptionInput = document.getElementById('description');
+        const monthSelector = document.getElementById('month-selector');
+        const dateInput = document.getElementById('date');
+        const fileInput = document.getElementById('receipt-photo');
+        const submitBtn = document.getElementById('submit-btn');
+        
+        let myChart = null; 
+        let editId = null; 
+
+        const today = new Date();
+        monthSelector.value = today.toISOString().slice(0, 7);
+        dateInput.value = today.toISOString().slice(0, 10);
+
+        function updateCategoryOptions() {
+            const selectedType = typeSelect.value;
+            categorySelect.innerHTML = '';
+            categoryOptions[selectedType].forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.innerText = cat;
+                categorySelect.appendChild(option);
+            });
+        }
+        typeSelect.addEventListener('change', updateCategoryOptions);
+        updateCategoryOptions();
+
+        descriptionInput.addEventListener('input', function() {
+            const text = descriptionInput.value.toLowerCase();
+            for (let key in aiRules) {
+                if (text.includes(key)) {
+                    const suggestedCategory = aiRules[key];
+                    let foundType = null;
+                    for (let type in categoryOptions) {
+                        if (categoryOptions[type].includes(suggestedCategory)) {
+                            foundType = type;
+                            break;
+                        }
+                    }
+                    if (foundType) {
+                        typeSelect.value = foundType;
+                        updateCategoryOptions();
+                        categorySelect.value = suggestedCategory;
+                    }
+                    break; 
+                }
+            }
+        });
+
+        let transactions = [];
+        try {
+            transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        } catch (e) {
+            console.error("Помилка читання історії", e);
+            transactions = [];
+        }
+
+        let financialGoal = parseFloat(localStorage.getItem('financialGoal')) || 0;
+        let totalDebtLimit = parseFloat(localStorage.getItem('totalDebtLimit')) || 0;
+        
+        document.getElementById('goal-input').value = financialGoal || '';
+        document.getElementById('debt-input').value = totalDebtLimit || '';
+
+        function compressImage(file, callback) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 400; 
+                    const scaleSize = MAX_WIDTH / img.width;
+                    canvas.width = MAX_WIDTH;
+                    canvas.height = img.height * scaleSize;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    callback(canvas.toDataURL('image/jpeg', 0.7)); 
+                }
+                img.src = e.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+
+        function saveGoal() {
+            financialGoal = parseFloat(document.getElementById('goal-input').value) || 0;
+            localStorage.setItem('financialGoal', financialGoal);
+            updateUI();
+        }
+
+        function saveDebt() {
+            totalDebtLimit = parseFloat(document.getElementById('debt-input').value) || 0;
+            localStorage.setItem('totalDebtLimit', totalDebtLimit);
+            updateUI();
+        }
+
+        // НОВА ФУНКЦІЯ: Броня для зламаних дат
+        function getSafeDate(t) {
+            if (t.date) return t.date;
+            if (t.id && !isNaN(t.id)) {
+                try {
+                    return new Date(t.id).toISOString().slice(0, 10);
+                } catch(e) {}
+            }
+            return new Date().toISOString().slice(0, 10); // Завжди повертає сьогодні як план "Б"
+        }
+
+        function updateUI() {
+            const listElement = document.getElementById('history-list');
+            const analysisBox = document.getElementById('analysis-box');
+            listElement.innerHTML = ''; 
+            analysisBox.innerHTML = '';
+            
+            let monthBalance = 0; let monthInvested = 0; let monthExpenses = 0;
+            let totalOverallCapital = 0; 
+            let totalPaidDebt = 0; 
+            let expenseAnalysis = {};
+            
+            const selectedMonth = monthSelector.value;
+
+            const filteredTransactions = transactions.filter(t => {
+                const tDate = getSafeDate(t); // Використовуємо безпечну дату
+                const amt = parseFloat(t.amount) || 0; 
+                
+                if (t.type === 'plus') totalOverallCapital += amt;
+                if (t.type === 'minus') totalOverallCapital -= amt;
+                
+                if (t.type === 'minus' && t.category === 'Кредити') {
+                    totalPaidDebt += amt;
+                }
+                
+                return tDate.startsWith(selectedMonth);
+            });
+
+            [...filteredTransactions].reverse().forEach(function(transaction) {
+                const tDate = getSafeDate(transaction); // Використовуємо безпечну дату
+                const amt = parseFloat(transaction.amount) || 0; 
+
+                if (transaction.type === 'plus') monthBalance += amt;
+                else if (transaction.type === 'minus') {
+                    monthBalance -= amt;
+                    monthExpenses += amt;
+                    expenseAnalysis[transaction.category] = (expenseAnalysis[transaction.category] || 0) + amt;
+                } else if (transaction.type === 'invest') {
+                    monthBalance -= amt;
+                    monthInvested += amt;
+                }
+
+                let sign = transaction.type === 'plus' ? '+' : (transaction.type === 'minus' ? '-' : '↗');
+                let colorClass = transaction.type;
+                let imgHTML = transaction.photo ? `<img src="${transaction.photo}" class="receipt-img" alt="Чек">` : '';
+
+                const listItem = document.createElement('li');
+                listItem.innerHTML = `
+                    <div class="li-main">
+                        <div>
+                            <strong>${transaction.description}</strong>
+                            <span class="category-tag">${transaction.category}</span>
+                            <span class="date-tag">${tDate}</span>
+                        </div> 
+                        <div class="item-right">
+                            <span class="${colorClass}">${sign}${amt} ₴</span>
+                            <button class="action-btn edit-btn" onclick="editTransaction(${transaction.id})">✎</button>
+                            <button class="action-btn delete-btn" onclick="deleteTransaction(${transaction.id})">X</button>
+                        </div>
+                    </div>
+                    ${imgHTML}
+                `;
+                listElement.appendChild(listItem);
+            });
+
+            const goalProgress = document.getElementById('goal-progress');
+            const goalText = document.getElementById('goal-text');
+            if (financialGoal > 0) {
+                let percent = Math.max(0, Math.min((totalOverallCapital / financialGoal) * 100, 100));
+                goalProgress.style.width = percent + '%';
+                goalText.innerText = `${totalOverallCapital} / ${financialGoal} ₴ (${percent.toFixed(1)}%)`;
+            } else {
+                goalProgress.style.width = '0%';
+                goalText.innerText = 'Мета не встановлена';
+            }
+
+            const debtProgress = document.getElementById('debt-progress');
+            const debtText = document.getElementById('debt-text');
+            if (totalDebtLimit > 0) {
+                let percentDebt = Math.max(0, Math.min((totalPaidDebt / totalDebtLimit) * 100, 100));
+                debtProgress.style.width = percentDebt + '%';
+                let debtLeft = totalDebtLimit - totalPaidDebt;
+                debtText.innerText = `Виплачено: ${totalPaidDebt} ₴ | Залишилось: ${debtLeft > 0 ? debtLeft : 0} ₴`;
+            } else {
+                debtProgress.style.width = '0%';
+                debtText.innerText = 'Борги відсутні';
+            }
+
+            const sortedExpenses = Object.entries(expenseAnalysis).sort((a, b) => b[1] - a[1]);
+            const chartLabels = [], chartData = [];
+            const chartColors = ['#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff', '#ff9f40', '#c9cbcf', '#ffb300', '#00acc1', '#7cb342'];
+
+            if (sortedExpenses.length === 0) {
+                analysisBox.innerHTML = '<p style="color:#888; font-size: 14px; text-align:center;">Немає витрат.</p>';
+            } else {
+                sortedExpenses.forEach(item => {
+                    const percent = Math.round((item[1] / monthExpenses) * 100);
+                    chartLabels.push(item[0]); chartData.push(item[1]);
+                    analysisBox.innerHTML += `
+                        <div class="analysis-item">
+                            <span>${item[0]} <small>(${percent}%)</small></span>
+                            <strong>${item[1]} ₴</strong>
+                        </div>
+                    `;
+                });
+            }
+
+            if (myChart) myChart.destroy();
+            if (chartData.length > 0) {
+                const ctx = document.getElementById('expenseChart').getContext('2d');
+                myChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: { labels: chartLabels, datasets: [{ data: chartData, backgroundColor: chartColors, borderWidth: 1 }] },
+                    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+                });
+            }
+
+            document.getElementById('total-balance').innerText = `${monthBalance} ₴`;
+            document.getElementById('total-invested').innerText = `${monthInvested} ₴`;
+            document.getElementById('total-expenses').innerText = `${monthExpenses} ₴`;
+            
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+        }
+
+        monthSelector.addEventListener('change', updateUI);
+
+        function deleteTransaction(id) { transactions = transactions.filter(t => t.id !== id); updateUI(); }
+
+        function editTransaction(id) {
+            const t = transactions.find(t => t.id === id);
+            if (!t) return;
+            
+            typeSelect.value = t.type;
+            updateCategoryOptions();
+            categorySelect.value = t.category;
+            document.getElementById('description').value = t.description;
+            document.getElementById('amount').value = t.amount;
+            dateInput.value = t.date;
+            
+            editId = id;
+            submitBtn.innerText = "Оновити запис";
+            submitBtn.classList.add('btn-edit-mode');
+            window.scrollTo(0, 0); 
+        }
+
+        document.getElementById('transaction-form').addEventListener('submit', function(event) {
+            event.preventDefault(); 
+            
+            const desc = document.getElementById('description').value;
+            const amount = parseFloat(document.getElementById('amount').value) || 0;
+            const type = typeSelect.value;
+            const category = categorySelect.value;
+            const date = dateInput.value;
+            const file = fileInput.files[0];
+
+            if (amount <= 0) return; 
+
+            function saveRecord(photoDataUrl) {
+                if (editId) {
+                    const index = transactions.findIndex(t => t.id === editId);
+                    transactions[index].type = type;
+                    transactions[index].category = category;
+                    transactions[index].description = desc;
+                    transactions[index].amount = amount;
+                    transactions[index].date = date;
+                    if (photoDataUrl) transactions[index].photo = photoDataUrl; 
+                    
+                    editId = null;
+                    submitBtn.innerText = "Зберегти запис";
+                    submitBtn.classList.remove('btn-edit-mode');
+                } else {
+                    transactions.push({ id: Date.now(), date: date, type: type, category: category, description: desc, amount: amount, photo: photoDataUrl });
+                }
+                
+                document.getElementById('description').value = '';
+                document.getElementById('amount').value = '';
+                fileInput.value = '';
+                updateUI();
+            }
+
+            if (file) { compressImage(file, saveRecord); } 
+            else { saveRecord(null); }
+        });
+
+        updateUI();
+    </script>
+</body>
+</html>
